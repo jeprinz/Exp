@@ -40,9 +40,4 @@ ex' = ex
 test' : (e : Example ex) → Example e → ℕ
 test' = patternMatch (λ x e → ℕ) 0
 
-
----IMPORTANT: the above function makes agda type checker never terminate.
--- what can be done about this? This whole project can't work without
--- being able to pattern match on Exp.
-
 -- ^ from reddit https://www.reddit.com/r/agda/comments/b9ni7l/another_beginner_question_how_to_define_mutually/
