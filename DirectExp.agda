@@ -20,29 +20,12 @@ promoteType : ∀ {n} → (Γ : Context) → Index Γ {n} → expU n Γ
 -- an  Exp {n} Γ T    is the set of expressions of type T. T must be an element of Uₙ
 data Exp : {n : ℕ} → (Γ : Context') → expU n Γ → Set where
   U : (n : ℕ) → ∀ {Γ} → Exp Γ (U' (suc n))
-  Var : ∀ {Γ} → ∀ {n} → (i : Index Γ {n}) → Exp {n} Γ (promoteType Γ i)
+  -- Var : ∀ {Γ} → ∀ {n} → (i : Index Γ {n}) → Exp {n} Γ (promoteType Γ i)
+
   -- Lambda : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} (ConsCtx Γ A) B → Exp Γ (Pi {n} A B)
   -- App : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} Γ (Pi {n} A B) → (x : Exp Γ A) →
     -- Exp Γ ({!   !}) -- In the hole, put the substitution of x in B
 
-{-
-TODO: problem (but I know how to fix it but it will be hard)
-In a non-empty context, U is a type, but also (WeakerCtx U) is a type.
-This is a problem, there should only be one U and its messing things up.
-The intuition is that only InCtx should be used after WeakerCtx.
-The solution is to remove both InCtx and WeakerCtx and replace with one constructor,
-InCtx (yup the same name as before) which inputs a proof that the type is in the
-context.
-
-We need:
-weakerCtx U = U
-weakerCtx (Lambda e) = Lambda (weakenCtx e)
-weakerCtx (InCtx n) =  (InCtx (n + 1))
-
-Problem: example:
-Let T : Exp ∅ (U 0). Consider Γ = [T]. I want an element of Exp [T] ?
-where ? "=" T. But ? cant be T because T is in empty context.
--}
 
 expU n Γ = Exp Γ (U' n)
 U' = U
@@ -50,6 +33,15 @@ U' = U
 -- Exp : {n : ℕ} → (Γ : Context) → Exp Γ (U n) → Set
 -- U : (n : ℕ) → ∀ {Γ} → Exp Γ (U (suc n))
 
-promoteType (ConsCtx _ (U n)) It = {!   !}
-promoteType (ConsCtx _ T) It = {!   !}
-promoteType (ConsCtx _ _) (Back i) = {!   !}
+-- U U' ??????
+implImpl : ∀ {n} → ∀ {Γ} → (T : Exp Γ (U n)) → Exp (ConsCtx Γ T) (U n)
+implImpl (U n) = {!   !}
+
+promoteTypeImpl : ∀ {n} → (Γ : Context) → Index Γ {n} → Exp Γ (U n)
+promoteTypeImpl .(ConsCtx _ _) (It {Γ} {n} {T}) = {!   !}
+promoteTypeImpl .(ConsCtx _ _) (Back i) = {!   !}
+
+promoteType = {!   !}
+-- promoteType {n} .(ConsCtx {n} Γ (U n {Γ})) (It {Γ} {.n} {U' .n {.Γ}}) = Exp
+-- promoteType {n} (ConsCtx Γ T) (It {.Γ} {.n} {.T}) = {!   !}
+-- promoteType {n} (ConsCtx _ _) (Back i) = {!   !}
