@@ -1,58 +1,79 @@
-{-The intent of this file is to test a different approach to the Exp type which
-doesn't reference Agda types at all.  If possible, this should make pattern
-matching on Exp values easier because its not possible to pattern match types.-}
-
--- open import Agda.Primitive -- Level
 open import Data.Nat
 
-mutual
-  data Context : Set where
-    ∅ : Context
-    ConsCtx : ∀ {n} → (Γ : Context) → Type {n} Γ → Context
+-- Need to declare some types up front for eventual self reference
+Context' : Set --later on, Context' = Context
+expU : (n : ℕ) → (Γ : Context') → Set -- later on, expU {n} Γ = Exp {n} Γ (U n)
 
-  -- ctxType : {n : ℕ} → Context {n} → Set
-  -- ctxType = {!   !}
+data Context : Set where -- A list of types
+  ∅ : Context
+  ConsCtx : ∀ {n} → (Γ : Context') → expU n Γ → Context
+Context' = Context
 
+U' : (n : ℕ) → ∀ {Γ} → expU (suc n) Γ -- later on, U' = U
+--given the above meaning of expU,   U': (n : ℕ) → ∀ {Γ} → Exp {suc n} Γ (U (suc n))
+Pi' : ∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → expU (suc n) Γ --Pi' = Pi
+WeakenType : ∀ {n m} → ∀ {Γ} → ∀ {A} → expU n Γ → expU n (ConsCtx {m} Γ A)
 
-  data Type : {n : ℕ} → Context → Set where --elements of Uₙ
-    U : (n : ℕ) → ∀ {Γ} → Type {suc n} Γ
-    Pi : ∀ {n} → ∀ {Γ} → (A : Type Γ) → (B : Type (ConsCtx Γ A)) → Type {n} Γ
-    fromExp : ∀ {n} → ∀ {Γ} → Exp Γ (U (suc n)) → Type {n} Γ
-    InCtx : ∀ {n} → ∀ {Γ} → Type {n} (ConsCtx Γ (U n))
-    WeakerCtx : ∀ {n} → ∀ {Γ} → ∀ {T} → Type {n} Γ → Type {n} (ConsCtx Γ T)
-
--- should be Type (ConsCtx ∅ U), which essentially does "InCtx"
--- should it? what if I only have   Exp (ConsCtx ∅ U) U
-
-  data Exp : {n : ℕ} → (Γ : Context) → Type {n} Γ → Set where
-    fromType : ∀ {n} → ∀ {Γ} → Type {n} Γ → Exp Γ (U (suc n))
-    InCtx : ∀ {n} → ∀ {Γ} → (T : Type {n} Γ) → Exp {n} (ConsCtx Γ T) (WeakerCtx T) -- <-- here is where type needs InCtx.
-    WeakerCtx : ∀ {n} → ∀ {Γ} → ∀ {T A} → Exp {n} Γ A → Exp {n} (ConsCtx Γ T) (WeakerCtx A)
-
-    Lambda : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} (ConsCtx Γ A) B → Exp Γ (Pi {n} A B)
-    App : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} Γ (Pi {n} A B) → (x : Exp Γ A) →
-      Exp Γ ({!   !}) -- In the hole, put the substitution of x in B
-
-    -- App : {Γ : Context} → {A : ctxType Γ → Set (ll n)} → {B : (γ : ctxType Γ) → A γ → Set (ll n)} →
-      -- Exp Γ (λ γ → (a : A γ) → B γ a) → (x : Exp Γ A) → Exp Γ (λ γ → B γ (eval γ x))
+-- an  Exp {n} Γ T    is the set of expressions of type T. T must be an element of Uₙ
+data Exp : {n : ℕ} → (Γ : Context') → expU n Γ → Set where
+  U : (n : ℕ) → Exp ∅ (U' (suc n))
+  InCtx : ∀ {n} → ∀ {Γ} → ∀ {T} → Exp {n} (ConsCtx Γ T) (WeakenType T)
+  Weaken : ∀ {n m} → ∀ {Γ} → ∀ {T} → ∀ {A} → Exp {n} Γ T → Exp {n} (ConsCtx {m} Γ A) (WeakenType {n} T)
+  Pi : ∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → Exp Γ (U' (suc n))
+  Lambda : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} (ConsCtx Γ A) B → Exp Γ (Pi' {n} A B)
+  -- App : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} Γ (Pi {n} A B) → (x : Exp Γ A) →
+    -- Exp Γ ({!   !}) -- In the hole, put the substitution of x in B
 
 
-  -- liftCtx : (n : ℕ) → Context {n} → Context {suc n}
-  -- liftCtx n ∅ = ∅
-  -- liftCtx n (ConsCtx Γ T) = ConsCtx (liftCtx n Γ) (liftType n T)
+-- Agda crashes when I try to pattern match on Exp, so I need an induction principle.
+-- It must be defined before I tie the knot, or else it too would crash Agda.
+ind : (P : {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Set) →
+  ((n : ℕ) → P (U n)) → --U
+  ({n : ℕ} → {Γ : Context} → {T : expU n Γ} → P (InCtx {n} {Γ} {T})) → --InCtx
+  ({n m : ℕ} → {Γ : Context} → {T : expU n Γ} → {A : expU m Γ} → (e : Exp {n} Γ T) →
+    P (Weaken {n} {m} {Γ} {T} {A} e)) → --Weaken
+  (∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → P (Pi A B)) → --Pi
+  (∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → (e : Exp {n} (ConsCtx Γ A) B) → P (Lambda e)) → --Lambda
+  {n : ℕ} → {Γ : Context} → {T : expU n Γ} → (e : Exp {n} Γ T) → (P e)
+ind P u i w p l (U n) = u n
+ind P u i w p l (InCtx {n} {Γ} {T}) = i {n} {Γ} {T}
+ind P u i w p l (Weaken {n} {m} {Γ} {T} {A} e) = w {n} {m} {Γ} {T} {A} e
+ind P u i w p l (Pi A B) = p A B
+ind P u i w p l (Lambda e) = l e
 
-  -- liftType : (n : ℕ) → ∀ {Γ} → Type {n} Γ → Type {suc n} (liftCtx n Γ)
-  -- liftType n T = fromExp (fromType T)
+-- throw in a recursor why not
+rec : {Out : Set} →
+  ((n : ℕ) → Out) → --U
+  ({n : ℕ} → {Γ : Context} → {T : expU n Γ} → Out) → --InCtx
+  ({n m : ℕ} → {Γ : Context} → {T : expU n Γ} → {A : expU m Γ} → Exp {n} Γ T → Out) → --Weaken
+  (∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → Out) → --Pi
+  (∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} (ConsCtx Γ A) B → Out) → --Lambda
+  {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Out
+rec {Out} = ind (λ e → Out)
 
--- mutual -- TODO: subst can't be in mutual block , but substt can???? but it needs to depend on subst...
---   substt : ∀ {n} → ∀ {Γ} → {T : Type Γ} →
---     Type {n} (ConsCtx Γ T) → (x : Exp {n} Γ T) → Type {n} Γ
---   substt (U n) x = U n
---   substt (Pi T T₁) x = {!   !}
---   substt {n} {Γ} {T} (fromExp .{n} .{ConsCtx Γ T} x₁) x = fromExp {n} {Γ} (subst {n} {Γ} {T} {U n {ConsCtx Γ T}} x₁ x)
---   substt InCtx x = fromExp x
---   substt (WeakerCtx T) x = T
---
---   subst : ∀ {n} → ∀ {Γ} → {T : Type Γ} → {A : Type (ConsCtx Γ T)} →
---     Exp {n} (ConsCtx Γ T) A → (x : Exp {n} Γ T) → Exp {n} Γ {!   !}
---   subst = {!   !}
+-- now, time to tie the knot and make Exp fully defined.
+expU n Γ = Exp Γ (U' n)
+U' n {∅} = U n
+U' n {ConsCtx {m} Γ T} = WeakenType {suc n} {m} {Γ} {T} (U' n {Γ})
+Pi' = Pi
+WeakenType = Weaken
+-- what all of this has created is:
+-- Exp : {n : ℕ} → (Γ : Context) → Exp Γ (U n) → Set
+-- U : (n : ℕ) → ∀ {Γ} → Exp Γ (U (suc n))
+
+--testing it out a little:
+e : Exp ∅ (Pi (U' 0) (U' 0))
+e = Lambda InCtx
+
+e' : Exp ∅ (Pi (U' 1) (U' 1))
+e' = Lambda (U' 0)
+
+-- recursor does work in practice!!!!
+-- not going to be useful though without induction principle...
+-- test : Exp ∅ (Pi (U' 1) (U' 1)) → ℕ
+-- test e = rec (λ n → n) --U n, can't happen
+--              (2) -- InCtx, note this can't even happen
+--              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Weaken e, also can't happen
+--              (λ A B → rec {!   !} {!   !} {!   !} {!   !} {!   !} B) -- Pi A B, also can't happen
+--              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Lambda e
+--              e
