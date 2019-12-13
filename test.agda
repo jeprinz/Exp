@@ -1,8 +1,10 @@
 open import Data.Nat
 
-n : ℕ
+data ⊥ : Set where
 
-data Test : ℕ → Set
-  test :
+Bad' : Set
 
-n = m
+data Bad : Set where
+  bad : Bad' → Bad
+
+Bad' = Bad

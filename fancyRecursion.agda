@@ -30,14 +30,15 @@ data Example : exampleex → Set where
 test : (e : exampleex) → Example e → ℕ
 test _ ex = 0
 
-patternMatch : (P : (x : exampleex) → Example x → Set) → (P ex' ex) →
+induction : (P : (x : exampleex) → Example x → Set) → (P ex' ex) →
   ((x : exampleex) → (e : Example x) → P x e)
-patternMatch P val _ ex = val
+induction P val _ ex = val
 
 exampleex = Example ex'
 ex' = ex
 
 test' : (e : Example ex) → Example e → ℕ
-test' = patternMatch (λ x e → ℕ) 0
+test' = induction (λ x e → ℕ) 0
+
 
 -- ^ from reddit https://www.reddit.com/r/agda/comments/b9ni7l/another_beginner_question_how_to_define_mutually/
