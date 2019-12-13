@@ -1,13 +1,5 @@
 open import Data.Nat
 
-{-
-This file is a slightly different idea about how constructors of Exp should work
-The idea is that e.g. U only works in the empty context, but then
-there is a constructor Weaken which goes Exp Γ T → Exp (ConsCtx Γ A) (promoteType T)
-and then promoteType is just defined with Weaken.
-Question: does this lead to redundancy?
--}
-
 Context' : Set
 expU : (n : ℕ) → (Γ : Context') → Set -- expU {n} Γ = Exp {n} Γ (U n)
 
@@ -33,8 +25,34 @@ data Exp : {n : ℕ} → (Γ : Context') → expU n Γ → Set where
   -- App : ∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} Γ (Pi {n} A B) → (x : Exp Γ A) →
     -- Exp Γ ({!   !}) -- In the hole, put the substitution of x in B
 
-expU n Γ = Exp Γ (U' n)
 
+-- Agda crashes when I try to pattern match on Exp, so I need an induction principle.
+-- It must be defined before I tie the knot, or else it too would crash Agda.
+ind : (P : {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Set) →
+  ((n : ℕ) → P (U n)) → --U
+  ({n : ℕ} → {Γ : Context} → {T : expU n Γ} → P (InCtx {n} {Γ} {T})) → --InCtx
+  ({n m : ℕ} → {Γ : Context} → {T : expU n Γ} → {A : expU m Γ} → (e : Exp {n} Γ T) →
+    P (Weaken {n} {m} {Γ} {T} {A} e)) → --Weaken
+  (∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → P (Pi A B)) → --Pi
+  (∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → (e : Exp {n} (ConsCtx Γ A) B) → P (Lambda e)) → --Lambda
+  {n : ℕ} → {Γ : Context} → {T : expU n Γ} → (e : Exp {n} Γ T) → (P e)
+ind P u i w p l (U n) = u n
+ind P u i w p l (InCtx {n} {Γ} {T}) = i {n} {Γ} {T}
+ind P u i w p l (Weaken {n} {m} {Γ} {T} {A} e) = w {n} {m} {Γ} {T} {A} e
+ind P u i w p l (Pi A B) = p A B
+ind P u i w p l (Lambda e) = l e
+
+rec : {Out : Set} →
+  ((n : ℕ) → Out) → --U
+  ({n : ℕ} → {Γ : Context} → {T : expU n Γ} → Out) → --InCtx
+  ({n m : ℕ} → {Γ : Context} → {T : expU n Γ} → {A : expU m Γ} → Exp {n} Γ T → Out) → --Weaken
+  (∀ {n} → ∀ {Γ} → (A : expU n Γ) → (B : expU n (ConsCtx Γ A)) → Out) → --Pi
+  (∀ {n} → ∀ {Γ} → ∀ {A} → ∀ {B} → Exp {n} (ConsCtx Γ A) B → Out) → --Lambda
+  {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Out
+rec {Out} = ind (λ e → Out)
+
+-- now, time to tie the knot and make Exp fully defined.
+expU n Γ = Exp Γ (U' n)
 U' n {∅} = U n
 U' n {ConsCtx {m} Γ T} = WeakenType {suc n} {m} {Γ} {T} (U' n {Γ})
 Pi' = Pi
@@ -43,19 +61,18 @@ WeakenType = Weaken
 -- Exp : {n : ℕ} → (Γ : Context) → Exp Γ (U n) → Set
 -- U : (n : ℕ) → ∀ {Γ} → Exp Γ (U (suc n))
 
-
-
-test' : {n : ℕ} → (Γ : Context) → (T : expU n Γ) → Exp {n} Γ T → ℕ
-test' Γ T (U m) = {!  !}
-
 e : Exp ∅ (Pi (U' 0) (U' 0))
 e = Lambda InCtx
 
 e' : Exp ∅ (Pi (U' 1) (U' 1))
 e' = Lambda (U' 0)
 
--- this crashes when type check. Probably need to manually define induction
--- a la fancyRecurson.agda
-
+-- recursor does work in practice!!!!
+-- not going to be useful though without induction principle...
 -- test : Exp ∅ (Pi (U' 1) (U' 1)) → ℕ
--- test (Lambda e) = test' e
+-- test e = rec (λ n → n) --U n, can't happen
+--              (2) -- InCtx, note this can't even happen
+--              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Weaken e, also can't happen
+--              (λ A B → rec {!   !} {!   !} {!   !} {!   !} {!   !} B) -- Pi A B, also can't happen
+--              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Lambda e
+--              e
