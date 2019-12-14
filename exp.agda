@@ -1,3 +1,4 @@
+-- {-# OPTIONS --allow-unsolved-metas #-}
 open import Data.Nat
 
 max : ℕ → ℕ → ℕ -- move this elsewhere later...
@@ -14,7 +15,7 @@ data Context : Set where -- A list of types
   ConsCtx : ∀ {n} → (Γ : Context') → expU n Γ → Context
 Context' = Context
 
-U' : (n : ℕ) → ∀ {Γ} → expU (suc n) Γ -- later on, U' = U
+U' : (n : ℕ) → ∀ {Γ} → expU (suc n) Γ -- later on, U' gives iterated Weaker and U
 --given the above meaning of expU,   U': (n : ℕ) → ∀ {Γ} → Exp {suc n} Γ (U (suc n))
 Pi' : ∀ {n m} → ∀ {Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → expU (suc (max n m)) Γ --Pi' = Pi
 WeakenType : ∀ {n m} → ∀ {Γ} → ∀ {A} → expU n Γ → expU n (ConsCtx {m} Γ A)
@@ -73,25 +74,45 @@ WeakenType = Weaken
 -- Exp : {n : ℕ} → (Γ : Context) → Exp Γ (U n) → Set
 -- U : (n : ℕ) → ∀ {Γ} → Exp Γ (U (suc n))
 
+
+-- data Index : Context → {n : ℕ} → Set where -- defines a position in a context
+  -- It : ∀ {Γ} → ∀ {n} → {T : expU n Γ} → Index (ConsCtx Γ T) {n}
+  -- Back : ∀ {Γ} → ∀ {n m} → {T : expU n Γ} → Index Γ {m} → Index (ConsCtx {n} Γ T) {n}
+
+-- an in-between index, in the sense of the indices are in between elements
+data Prefix : Context → Context → Set where -- defines a position in a context
+  Refl : (Γ : Context) → Prefix Γ Γ
+  Cons : ∀ {Γhead Γ n} → (T : expU n Γ) → Prefix Γhead Γ → Prefix Γhead (ConsCtx Γ T)
+
+prepend : (Γ : Context) → ∀ {n} → (T : expU n ∅) → Context
+preWeakenType : ∀ {n Γ A} → expU n Γ → expU n (prepend Γ A)
+prepend ∅ {n} T = ConsCtx ∅ T
+prepend (ConsCtx {m} Γ A) T = ConsCtx {m} (prepend Γ T) (preWeakenType A)
+
+preWeaken : ∀ {n Γ A T} → Exp {n} Γ T → Exp {n} (prepend Γ A) (preWeakenType T)
+preWeaken {n} {Γ} {A} {T} e = rec
+                  {!   !}
+                  {!   !}
+                  {!   !}
+                  {!   !}
+                  {!   !}
+                  {!   !}
+                  e
+
+preWeakenType = {!   !}
+
+insert : ∀ {Γhead Γ} → Prefix Γhead Γ → ∀ {n} → (T : expU n Γhead) → Context
+insert (Refl Γ) T = ConsCtx Γ T
+insert (Cons A p) T = ConsCtx (insert p T) {!   !}
+
 subst : ∀ {n m Γ A T} → Exp {n} (ConsCtx Γ A) (WeakenType T) → Exp {m} Γ A → Exp {n} Γ T
 subst f x = {!   !} -- really, I'm going to need full on permutations of contexts.
                     -- see implementation of permutations from old version.
                     -- I may not need full on permutations, just sublists.
+{-
+IDEA: instead of permutations or even sublists, just bring back Index!
+Then subst inputs an index in a context and a thing of that type!
+problem is though that the output needs to have a context with that thing removed
+Solution: can just make a function to add WeakenType to all things after the index
+-}
 substType = subst
-
---testing it out a little:
-e : Exp ∅ (Pi (U' 0) (U' 0))
-e = Lambda InCtx
-
-e' : Exp ∅ (Pi (U' 1) (U' 1))
-e' = Lambda (U' 0)
-
--- recursor does work in practice!!!!
--- not going to be useful though without induction principle...
--- test : Exp ∅ (Pi (U' 1) (U' 1)) → ℕ
--- test e = rec (λ n → n) --U n, can't happen
---              (2) -- InCtx, note this can't even happen
---              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Weaken e, also can't happen
---              (λ A B → rec {!   !} {!   !} {!   !} {!   !} {!   !} B) -- Pi A B, also can't happen
---              (λ e → rec {!   !} {!   !} {!   !} {!   !} {!   !} e) -- Lambda e
---              e
