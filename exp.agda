@@ -79,31 +79,28 @@ WeakenType = Weaken
   -- It : ∀ {Γ} → ∀ {n} → {T : expU n Γ} → Index (ConsCtx Γ T) {n}
   -- Back : ∀ {Γ} → ∀ {n m} → {T : expU n Γ} → Index Γ {m} → Index (ConsCtx {n} Γ T) {n}
 
--- an in-between index, in the sense of the indices are in between elements
-data Prefix : Context → Context → Set where -- defines a position in a context
-  Refl : (Γ : Context) → Prefix Γ Γ
-  Cons : ∀ {Γhead Γ n} → (T : expU n Γ) → Prefix Γhead Γ → Prefix Γhead (ConsCtx Γ T)
+{-
+The Insertion type is intended to represent a relation on a pair of contexts that the
+second context is just the first one with a single type inserted.
+Specifically, Γhead is a prefix of Γfull and (ConsCtx Γhead T) is a prefix of Γfull2
+A is a type n Γfull and A' is a type in Γfull2
+-}
+data Insertion : (Γhead Γfull Γfull2 : Context) → ∀ {n m k} → expU n Γhead →
+  expU m Γfull → expU k Γfull2 → Set where
+  InsertOnEnd : ∀ {Γ n m} → {T : expU n Γ} → {A : expU m Γ} →
+    Insertion Γ Γ (ConsCtx Γ T) T A (Weaken A)
+  ConsOnEnd : ∀ {Γhead Γfull Γfull2 T A A' } →
+    Insertion Γhead Γfull Γfull2 T A A' →
+    Insertion Γhead (ConsCtx Γfull B) (ConsCtx Γfull2 ?) T A ?
 
-prepend : (Γ : Context) → ∀ {n} → (T : expU n ∅) → Context
-preWeakenType : ∀ {n Γ A} → expU n Γ → expU n (prepend Γ A)
-prepend ∅ {n} T = ConsCtx ∅ T
-prepend (ConsCtx {m} Γ A) T = ConsCtx {m} (prepend Γ T) (preWeakenType A)
+{-
+need substitute which takes Insertion and value to fill in and fills it in
+also need weakenByInsertion which takes value in Γfull and outputs value in Γfull2
+-}
 
-preWeaken : ∀ {n Γ A T} → Exp {n} Γ T → Exp {n} (prepend Γ A) (preWeakenType T)
-preWeaken {n} {Γ} {A} {T} e = rec
-                  {!   !}
-                  {!   !}
-                  {!   !}
-                  {!   !}
-                  {!   !}
-                  {!   !}
-                  e
-
-preWeakenType = {!   !}
-
-insert : ∀ {Γhead Γ} → Prefix Γhead Γ → ∀ {n} → (T : expU n Γhead) → Context
-insert (Refl Γ) T = ConsCtx Γ T
-insert (Cons A p) T = ConsCtx (insert p T) {!   !}
+-- substitute : ∀ {Γhead Γfull Γfull2 T A A'} → Insertion Γhead Γfull Γfull2 T A A' →
+  -- Exp Γfull2 A' → Exp Γhead T → Exp Γfull A
+-- substitute = {!   !}
 
 subst : ∀ {n m Γ A T} → Exp {n} (ConsCtx Γ A) (WeakenType T) → Exp {m} Γ A → Exp {n} Γ T
 subst f x = {!   !} -- really, I'm going to need full on permutations of contexts.
