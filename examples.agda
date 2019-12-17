@@ -7,6 +7,9 @@ e = Lambda InCtx -- λ x . x
 e' : Exp ∅ (Pi (U' 1) (U' 1)) -- Type 1 → Type 1
 e' = Lambda (U' 0) -- λ x . Type 0
 
+e'' : Exp ∅ (Pi (U' 0) (U' 1))
+e'' = Lambda (U' 0)
+
 polymorphicIdentity : Exp ∅ (Pi (U' 0) (Pi InCtx (Weaken InCtx))) -- (T : Type) → T → T
 polymorphicIdentity = Lambda (Lambda InCtx)
 

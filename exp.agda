@@ -1,4 +1,4 @@
--- {-# OPTIONS --allow-unsolved-metas #-}
+{-# OPTIONS --allow-unsolved-metas #-}
 open import Data.Nat
 
 max : ℕ → ℕ → ℕ -- move this elsewhere later...
@@ -17,7 +17,7 @@ Context' = Context
 
 U' : (n : ℕ) → ∀ {Γ} → expU (suc n) Γ -- later on, U' gives iterated Weaker and U
 --given the above meaning of expU,   U': (n : ℕ) → ∀ {Γ} → Exp {suc n} Γ (U (suc n))
-Pi' : ∀ {n m} → ∀ {Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → expU (suc (max n m)) Γ --Pi' = Pi
+Pi' : ∀ {n m} → ∀ {Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → expU (max n m) Γ --Pi' = Pi
 WeakenType : ∀ {n m} → ∀ {Γ} → ∀ {A} → expU n Γ → expU n (ConsCtx {m} Γ A)
 Exp' : {n : ℕ} → (Γ : Context') → expU n Γ → Set
 substType : ∀ {n m Γ A} → expU n (ConsCtx Γ A) → Exp' {m} Γ A → expU n Γ
@@ -27,20 +27,23 @@ data Exp : {n : ℕ} → (Γ : Context') → expU n Γ → Set where
   U : (n : ℕ) → Exp ∅ (U' (suc n))
   InCtx : ∀ {n Γ T} → Exp {n} (ConsCtx Γ T) (WeakenType T)
   Weaken : ∀ {n m Γ T A} → Exp {n} Γ T → Exp {n} (ConsCtx {m} Γ A) (WeakenType {n} T)
-  Pi : ∀ {n m Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → Exp Γ (U' (suc (max n m)))
-  Lambda : ∀ {n Γ A B} → Exp {n} (ConsCtx Γ A) B → Exp Γ (Pi' {n} A B)
+  Pi : ∀ {n m Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → Exp Γ (U' (max n m))
+  Lambda : ∀ {n m Γ A B} → Exp {n} (ConsCtx {m} Γ A) B → Exp Γ (Pi' A B)
   App : ∀ {n m Γ} → {A : expU n Γ} → {B : expU m (ConsCtx Γ A)} → Exp Γ (Pi' A B) →
     (x : Exp' Γ A) → Exp Γ (substType B x) -- In the hole, put the substitution of x in B
 
 -- Agda crashes when I try to pattern match on Exp, so I need an induction principle.
 -- It must be defined before I tie the knot, or else it too would crash Agda.
+-- Pi but when m == n
+
+
 ind : (P : {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Set) →
   ((n : ℕ) → P (U n)) → --U
   (∀ {n Γ T} → P (InCtx {n} {Γ} {T})) → --InCtx
   (∀ {n m  Γ T A} → (e : Exp {n} Γ T) →
     P (Weaken {n} {m} {Γ} {T} {A} e)) → --Weaken
   (∀ {n m Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → P (Pi A B)) → --Pi
-  (∀ {n Γ A B} → (e : Exp {n} (ConsCtx Γ A) B) → P (Lambda e)) → --Lambda
+  (∀ {n m Γ A B} → (e : Exp {n} (ConsCtx {m} Γ A) B) → P (Lambda e)) → --Lambda
   (∀ {n m Γ} → {A : expU n Γ} → {B : expU m (ConsCtx Γ A)} → (f : Exp Γ (Pi' A B)) →
     (x : Exp' Γ A) → P (App f x)) → --App
   {n : ℕ} → {Γ : Context} → {T : expU n Γ} → (e : Exp {n} Γ T) → (P e)
@@ -57,7 +60,7 @@ rec : {Out : Set} →
   ({n : ℕ} → {Γ : Context} → {T : expU n Γ} → Out) → --InCtx
   ({n m : ℕ} → {Γ : Context} → {T : expU n Γ} → {A : expU m Γ} → Exp {n} Γ T → Out) → --Weaken
   (∀ {n m Γ} → (A : expU n Γ) → (B : expU m (ConsCtx Γ A)) → Out) → --Pi
-  (∀ {n Γ A B} → Exp {n} (ConsCtx Γ A) B → Out) → --Lambda
+  (∀ {n m Γ A B} → Exp {n} (ConsCtx {m} Γ A) B → Out) → --Lambda
   (∀ {n m Γ} → {A : expU n Γ} → {B : expU m (ConsCtx Γ A)} → (f : Exp Γ (Pi' A B)) →
     (x : Exp' Γ A) → Out) → --App
   {n : ℕ} → {Γ : Context} → {T : expU n Γ} → Exp {n} Γ T → Out
@@ -79,25 +82,6 @@ WeakenType = Weaken
   -- It : ∀ {Γ} → ∀ {n} → {T : expU n Γ} → Index (ConsCtx Γ T) {n}
   -- Back : ∀ {Γ} → ∀ {n m} → {T : expU n Γ} → Index Γ {m} → Index (ConsCtx {n} Γ T) {n}
 
-{-
-The Insertion type is intended to represent a relation on a pair of contexts that the
-second context is just the first one with a single type inserted.
-Specifically, Γhead is a prefix of Γfull and (ConsCtx Γhead T) is a prefix of Γfull2
-A is a type n Γfull and A' is a type in Γfull2
--}
-data Insertion : (Γhead Γfull Γfull2 : Context) → ∀ {n m k} → expU n Γhead →
-  expU m Γfull → expU k Γfull2 → Set where
-  InsertOnEnd : ∀ {Γ n m} → {T : expU n Γ} → {A : expU m Γ} →
-    Insertion Γ Γ (ConsCtx Γ T) T A (Weaken A)
-  ConsOnEnd : ∀ {Γhead Γfull Γfull2 T A A' } →
-    Insertion Γhead Γfull Γfull2 T A A' →
-    Insertion Γhead (ConsCtx Γfull B) (ConsCtx Γfull2 ?) T A ?
-
-{-
-need substitute which takes Insertion and value to fill in and fills it in
-also need weakenByInsertion which takes value in Γfull and outputs value in Γfull2
--}
-
 -- substitute : ∀ {Γhead Γfull Γfull2 T A A'} → Insertion Γhead Γfull Γfull2 T A A' →
   -- Exp Γfull2 A' → Exp Γhead T → Exp Γfull A
 -- substitute = {!   !}
@@ -106,10 +90,19 @@ subst : ∀ {n m Γ A T} → Exp {n} (ConsCtx Γ A) (WeakenType T) → Exp {m} �
 subst f x = {!   !} -- really, I'm going to need full on permutations of contexts.
                     -- see implementation of permutations from old version.
                     -- I may not need full on permutations, just sublists.
+Subst : ∀ {n m Γ} → {A : expU n Γ} → {B : expU m (ConsCtx Γ A)} → Exp (ConsCtx Γ A) B →
+  (x : Exp' Γ A) → Exp Γ (substType B x) -- In the hole, put the substitution of x in B
+Subst {n} {m} e x = App (Lambda e) x
+
+-- substType : ∀ {n m Γ A} → expU n (ConsCtx Γ A) → Exp' {m} Γ A → expU n Γ
+substType e x = let res = Subst e x in {!   !}
+
 {-
-IDEA: instead of permutations or even sublists, just bring back Index!
-Then subst inputs an index in a context and a thing of that type!
-problem is though that the output needs to have a context with that thing removed
-Solution: can just make a function to add WeakenType to all things after the index
+Problem: in order to know that an expression typechecks, we need to evaluate
+everything in the type.
+
+for example: suppose that f 0 = ℕ.
+Then , 5 : Exp (f 0).
+
+Time to work on value.agda.
 -}
-substType = subst
